@@ -766,10 +766,13 @@ public class PresentationEditor
             for (int i = 1; i < affected.Count; i++)
                 affected[i].run.Remove();
 
-            // Recalculate for next occurrence
+            // Recalculate for next occurrence, starting after the replacement to avoid infinite loops
             runs = paragraph.Elements<A.Run>().ToList();
             fullText = string.Join("", runs.Select(r => r.Text?.Text ?? ""));
-            idx = fullText.IndexOf(find, StringComparison.Ordinal);
+            int searchFrom = idx + replace.Length;
+            idx = searchFrom < fullText.Length
+                ? fullText.IndexOf(find, searchFrom, StringComparison.Ordinal)
+                : -1;
         }
 
         return count;
