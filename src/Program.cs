@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using PptxReview;
@@ -15,8 +16,12 @@ class Program
         bool jsonOutput = false;
         bool dryRun = false;
         bool readMode = false;
+        bool diffMode = false;
+        bool textConvMode = false;
+        bool gitSetup = false;
         bool showHelp = false;
         bool showVersion = false;
+        var positionalArgs = new List<string>();
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -42,19 +47,29 @@ class Program
                 case "--read":
                     readMode = true;
                     break;
+                case "--diff":
+                    diffMode = true;
+                    break;
+                case "--textconv":
+                    textConvMode = true;
+                    break;
+                case "--git-setup":
+                    gitSetup = true;
+                    break;
                 case "-h":
                 case "--help":
                     showHelp = true;
                     break;
                 default:
                     if (!args[i].StartsWith("-"))
-                    {
-                        if (inputPath == null) inputPath = args[i];
-                        else if (manifestPath == null) manifestPath = args[i];
-                    }
+                        positionalArgs.Add(args[i]);
                     break;
             }
         }
+
+        // Map positional args
+        if (positionalArgs.Count >= 1) inputPath = positionalArgs[0];
+        if (positionalArgs.Count >= 2) manifestPath = positionalArgs[1];
 
         if (showVersion)
         {
@@ -62,10 +77,82 @@ class Program
             return 0;
         }
 
-        if (showHelp || inputPath == null)
+        // ── Git setup ──────────────────────────────────────────────
+        if (gitSetup)
+        {
+            PrintGitSetup();
+            return 0;
+        }
+
+        if (showHelp || (inputPath == null && !gitSetup))
         {
             PrintUsage();
             return showHelp ? 0 : 1;
+        }
+
+        // ── Diff mode ─────────────────────────────────────────────
+        if (diffMode)
+        {
+            if (manifestPath == null)
+            {
+                Error("--diff requires two files: pptx-review --diff old.pptx new.pptx");
+                return 1;
+            }
+
+            if (!File.Exists(inputPath!))
+            {
+                Error($"Old file not found: {inputPath}");
+                return 1;
+            }
+            if (!File.Exists(manifestPath))
+            {
+                Error($"New file not found: {manifestPath}");
+                return 1;
+            }
+
+            try
+            {
+                var oldPres = PresentationExtractor.Extract(inputPath!);
+                var newPres = PresentationExtractor.Extract(manifestPath);
+                var diffResult = PresentationDiffer.Diff(oldPres, newPres);
+
+                if (jsonOutput)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(diffResult, PptxReviewJsonContext.Default.PptxDiffResult));
+                }
+                else
+                {
+                    PresentationDiffer.PrintHumanReadable(diffResult);
+                }
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Error($"Diff failed: {ex.Message}");
+                return 1;
+            }
+        }
+
+        // ── TextConv mode ─────────────────────────────────────────
+        if (textConvMode)
+        {
+            if (!File.Exists(inputPath!))
+            {
+                Error($"File not found: {inputPath}");
+                return 1;
+            }
+
+            try
+            {
+                var extraction = PresentationExtractor.Extract(inputPath!);
+                Console.Write(PptxTextConv.Convert(extraction));
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Error($"TextConv failed: {ex.Message}");
+                return 1;
+            }
         }
 
         // Validate input file
@@ -75,7 +162,7 @@ class Program
             return 1;
         }
 
-        // --- Read mode ---
+        // ── Read mode ─────────────────────────────────────────────
         if (readMode)
         {
             try
@@ -100,8 +187,7 @@ class Program
             }
         }
 
-        // --- Edit mode ---
-
+        // ── Edit mode (original behavior) ─────────────────────────
         // Read manifest from file or stdin
         string manifestJson;
         if (manifestPath != null)
@@ -176,19 +262,28 @@ class Program
 
     static void PrintUsage()
     {
-        Console.Error.WriteLine(@"pptx-review — Programmatic PowerPoint (.pptx) editing
+        Console.Error.WriteLine(@"pptx-review — Read, write, and diff PowerPoint presentations
 
 Usage:
-  pptx-review <input.pptx> <edits.json> [options]
+  pptx-review <input.pptx> --read [--json]              Read presentation content
+  pptx-review <input.pptx> <edits.json> [options]       Apply edits to presentation
+  pptx-review --diff <old.pptx> <new.pptx> [--json]     Semantic presentation diff
+  pptx-review --textconv <file.pptx>                     Git textconv (normalized text)
+  pptx-review --git-setup                                Print git configuration
   cat edits.json | pptx-review <input.pptx> [options]
-  pptx-review <input.pptx> --read --json
 
-Options:
+Diff & Git Integration:
+  --diff                 Compare two presentations semantically (slides, shapes,
+                         speaker notes, comments, images, metadata)
+  --textconv             Output normalized text for use as git diff textconv driver
+  --git-setup            Print .gitattributes and .gitconfig setup instructions
+
+Read/Write Options:
+  --read                 Read mode: extract slides, shapes, notes, comments
   -o, --output <path>    Output file path (default: <input>_edited.pptx)
   --author <name>        Author name (overrides manifest author)
   --json                 Output results as JSON
   --dry-run              Validate manifest without modifying
-  --read                 Read presentation content (use with --json for structured output)
   -v, --version          Show version
   -h, --help             Show this help
 
@@ -215,6 +310,30 @@ JSON Manifest Format:
       { ""slide"": 1, ""text"": ""This slide needs work"" }
     ]
   }");
+    }
+
+    static void PrintGitSetup()
+    {
+        Console.WriteLine(@"Git Integration for PowerPoint Presentations
+═════════════════════════════════════════════
+
+Add to your repository's .gitattributes:
+
+  *.pptx diff=pptx
+
+Add to your .gitconfig (global or per-repo):
+
+  [diff ""pptx""]
+      textconv = pptx-review --textconv
+
+Now `git diff` will show meaningful content changes for .pptx files,
+including slide text, speaker notes, comments, images, and metadata.
+
+For two-file comparison outside git:
+
+  pptx-review --diff old.pptx new.pptx
+  pptx-review --diff old.pptx new.pptx --json
+");
     }
 
     static void PrintHumanResult(ProcessingResult result, bool dryRun)
