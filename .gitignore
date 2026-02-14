@@ -1,0 +1,11 @@
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.swp
+*~
+.DS_Store
+*.pptx
+!examples/*.pptx
+build/

@@ -1,0 +1,37 @@
+{
+  "author": "Reviewer",
+  "changes": [
+    {
+      "type": "replace_text",
+      "find": "Draft",
+      "replace": "Final"
+    },
+    {
+      "type": "replace_text",
+      "find": "placeholder text",
+      "replace": "updated content",
+      "slide": 1
+    },
+    {
+      "type": "set_text",
+      "slide": 1,
+      "shape": "Title 1",
+      "text": "Updated Presentation Title"
+    },
+    {
+      "type": "set_notes",
+      "slide": 1,
+      "text": "Remember to introduce yourself and the topic"
+    }
+  ],
+  "comments": [
+    {
+      "slide": 1,
+      "text": "This slide needs a better title"
+    },
+    {
+      "slide": 2,
+      "text": "Consider adding a diagram here"
+    }
+  ]
+}
