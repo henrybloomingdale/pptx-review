@@ -10,6 +10,7 @@ namespace PptxReview;
 [JsonSerializable(typeof(EditManifest))]
 [JsonSerializable(typeof(ProcessingResult))]
 [JsonSerializable(typeof(ReadResult))]
+[JsonSerializable(typeof(PptxDiffResult))]
 [JsonSourceGenerationOptions(
     PropertyNameCaseInsensitive = true,
     WriteIndented = true
