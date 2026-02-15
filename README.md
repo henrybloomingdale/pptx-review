@@ -18,7 +18,13 @@ Open XML SDK is the gold standard — it's Microsoft's own library for manipulat
 
 ## Quick Start
 
-### Option 1: Native Binary (recommended)
+### Option 1: Homebrew (recommended)
+
+```bash
+brew install henrybloomingdale/tools/pptx-review
+```
+
+### Option 2: Native Binary
 
 ```bash
 git clone https://github.com/henrybloomingdale/pptx-review.git
@@ -28,7 +34,7 @@ make install    # Builds + installs to /usr/local/bin
 
 Requires [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) for building (`brew install dotnet@8`). The resulting binary is self-contained — no .NET runtime needed to run it.
 
-### Option 2: Docker
+### Option 3: Docker
 
 ```bash
 make docker     # Builds Docker image
@@ -131,6 +137,56 @@ Each comment needs:
 - `slide` — slide number (1-indexed) to attach the comment to
 - `text` — the comment content
 
+## Semantic Diff & Git Integration
+
+Compare two `.pptx` files semantically — detects slide content changes, speaker notes differences, comment modifications, shape additions/removals, and image changes.
+
+### Quick Start
+
+```bash
+# Compare two presentations
+pptx-review --diff old.pptx new.pptx
+
+# JSON output for automation
+pptx-review --diff old.pptx new.pptx --json
+
+# Use as a git textconv driver
+pptx-review --textconv presentation.pptx
+```
+
+### Git Integration
+
+Track `.pptx` changes in git with human-readable diffs:
+
+```bash
+# Print setup instructions
+pptx-review --git-setup
+```
+
+Add to `.gitattributes`:
+```
+*.pptx diff=pptx
+```
+
+Add to `.gitconfig`:
+```ini
+[diff "pptx"]
+    textconv = pptx-review --textconv
+```
+
+Now `git diff` shows readable text diffs for PowerPoint files.
+
+### What the Diff Detects
+
+| Category | Details |
+|----------|---------|
+| **Slide text** | Word-level changes within matched shapes across slides |
+| **Speaker notes** | Added, removed, or modified notes per slide |
+| **Comments** | New, removed, or changed comments |
+| **Shapes** | Added or removed shapes (by name and type) |
+| **Images** | Content changes detected via SHA-256 hash comparison |
+| **Slide structure** | Added or removed slides (matched by content similarity) |
+
 ## CLI Flags
 
 | Flag | Description |
@@ -140,6 +196,9 @@ Each comment needs:
 | `--json` | Output results as JSON (for scripting/pipelines) |
 | `--dry-run` | Validate the manifest without modifying the presentation |
 | `--read` | Read presentation content (combine with `--json` for structured output) |
+| `--diff` | Compare two presentations semantically |
+| `--textconv` | Git textconv driver (normalized text output) |
+| `--git-setup` | Print `.gitattributes` and `.gitconfig` setup instructions |
 | `-v`, `--version` | Show version |
 | `-h`, `--help` | Show help |
 
